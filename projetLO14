@@ -48,7 +48,7 @@ synchroniser() {
                 if cmp -s "$fichierA" "$fichierB"; then
                     echo "Les fichiers ont le même contenu, mais diffèrent dans les métadonnées."
                     # Résoudre le conflit en copiant les métadonnées du fichier qui est conforme au journal
-                    if [[ $(shasum "$fichierA") == $(cat "$HOME/.synchro/$nomFichier") ]]; then
+                    if [[ $(shasum "$fichierA") == $(cat "$HOME/.synchro/$(basename $pathA)_$nomFichier") ]]; then
                         chown --reference="$fichierA" "$fichierB"
                         chmod --reference="$fichierA" "$fichierB"
                         touch --reference="$fichierA" "$fichierB"
@@ -69,7 +69,8 @@ synchroniser() {
             echo "Le fichier $nomFichier a été copié de A vers B."
         fi
         # Mettre à jour le journal avec le hachage SHA du fichier synchronisé
-        shasum "$fichierA" > "$HOME/.synchro/$nomFichier"
+        echo "$(shasum "$fichierA") $fichierA" > "$HOME/.synchro/$(basename $pathA)_$nomFichier"
+        echo "Synchronisation effectuée le $(date)" >> "$HOME/.synchro/$(basename $pathA)_$nomFichier"
     done
 
     # Parcourir tous les fichiers dans le système de fichiers B
@@ -90,7 +91,8 @@ synchroniser() {
             echo "Le fichier $nomFichier a été copié de B vers A."
         fi
         # Mettre à jour le journal avec le hachage SHA du fichier synchronisé
-        shasum "$fichierB" > "$HOME/.synchro/$nomFichier"
+        echo "$(shasum "$fichierB") $fichierB" > "$HOME/.synchro/$(basename $pathB)_$nomFichier"
+        echo "Synchronisation effectuée le $(date)" >> "$HOME/.synchro/$(basename $pathB)_$nomFichier"
     done
 }
 
@@ -99,3 +101,4 @@ mkdir -p "$HOME/.synchro"
 
 # Appeler la fonction de synchronisation
 synchroniser $pathA $pathB
+
