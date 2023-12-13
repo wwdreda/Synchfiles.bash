@@ -1,4 +1,4 @@
-#!/bin/bash
+  GNU nano 6.2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             LO14.sh                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       #!/bin/bash
 
 # Vérifier si le script est exécuté en tant que root
 if [[ $EUID -ne 0 ]]; then
@@ -149,15 +149,13 @@ synchroniser() {
     done
 }
 
-# Créer le répertoire pour le fichier journal s'il n'existe pas
+# Créer le répertoire pour le fichier journal sil n'existe pas
 mkdir -p "$HOME/.synchro"
 
 # Appeler la fonction de synchronisation
 synchroniser $pathA $pathB
 
 # Afficher le nombre de liens symboliques synchronisés
-echo "Synchronisation terminée. $liensSymboliques liens symboliques ont été synchronisés.
-
-# Appeler la fonction de synchronisation
-synchroniser $pathA $pathB
+echo "Synchronisation terminée. $liensSymboliques liens symboliques ont été synchronisés."
+echo ""
 
