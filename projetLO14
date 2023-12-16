@@ -56,6 +56,12 @@ exclusions=("fichier_temporaire.txt" "cache")
 # Compteur pour les liens symboliques synchronisés
 liensSymboliques=0
 
+# Variables pour le résumé de la synchronisation
+totalFiles=0
+filesCopiedFromAtoB=0
+filesCopiedFromBtoA=0
+conflictsResolved=0
+
 # Fonction pour vérifier si un fichier/répertoire doit être exclu
 est_exclu() {
     for exclusion in "${exclusions[@]}"; do
@@ -103,13 +109,14 @@ synchroniser() {
             else
                 # Conflit détecté
                 echo "Conflit détecté pour le fichier $nomFichier."
+                ((conflictsResolved++))
                 # Comparer le contenu des fichiers
                 if cmp -s "$fichierA" "$fichierB"; then
                     echo "Les fichiers ont le même contenu, mais diffèrent dans les métadonnées."
                     # Résoudre le conflit en copiant les métadonnées du fichier qui est conforme au journal
                     if [[ $(shasum "$fichierA") == $(cat "$HOME/.synchro/$(basename $pathA)_$nomFichier") ]]; then
                         chown --reference="$fichierA" "$fichierB"
-                       chmod --reference="$fichierA" "$fichierB"
+                        chmod --reference="$fichierA" "$fichierB"
                         touch --reference="$fichierA" "$fichierB"
                         echo "Les métadonnées du fichier B ont été mises à jour pour correspondre à celles du fichier A."
                     else
@@ -125,31 +132,39 @@ synchroniser() {
                     read fichierConserve
                     if [[ $fichierConserve == $fichierA ]]; then
                         if [[ $interactive -eq 1 ]]; then
-                            echo "Are you sure you want to overwrite $fichierB with $fichierA? (y/n)"
+                            echo "Voulez-vous écraser $fichierB avec $fichierA ? (o/n)"
                             read response
-                            if [[ $response != "y" ]]; then
-                                echo "Skipping $fichierA"
+                            if [[ $response != "o" ]]; then
+                                echo "Ignorer $fichierA"
                                 continue
                             fi
                         fi
                         if [[ $dryrun -eq 1 ]]; then
-                            echo "Would copy $fichierA to $fichierB"
+                            echo "Copierait $fichierA vers $fichierB"
                         else
                             cp -d "$fichierA" "$fichierB"
+                            echo "Le fichier $nomFichier a été copié de A vers B."
+                            ((filesCopiedFromAtoB++))
+                            ((totalFiles++))
                         fi
                     else
                         if [[ $interactive -eq 1 ]]; then
-                            echo "Are you sure you want to overwrite $fichierA with $fichierB? (y/n)"
+                            echo "Voulez-vous écraser $fichierA avec $fichierB ? (o/n)"
                             read response
-                            if [[ $response != "y" ]]; then
-                                echo "Skipping $fichierB"
+                            if [[ $response != "o" ]]; then
+                                echo "Ignorer $fichierB"
                                 continue
                             fi
                         fi
                         if [[ $dryrun -eq 1 ]]; then
-                            echo "Would copy $fichierB to $fichierA"
+                            echo "Copierait $fichierB vers $fichierA"
                         else
                             cp -d "$fichierB" "$fichierA"
+                            echo "Le fichier $nomFichier a été copié de B vers A."
+                            cp -d "$fichierB" "$fichierA"
+                            echo "Le fichier $nomFichier a été copié de B vers A."
+                            ((filesCopiedFromBtoA++))
+                            ((totalFiles++))
                         fi
                     fi
                 fi
@@ -157,18 +172,20 @@ synchroniser() {
         else
             # Copier le fichier de A vers B
             if [[ $interactive -eq 1 ]]; then
-                echo "Are you sure you want to copy $fichierA to $fichierB? (y/n)"
+                echo "Voulez-vous copier $fichierA vers $fichierB ? (o/n)"
                 read response
-                if [[ $response != "y" ]]; then
-                    echo "Skipping $fichierA"
+                if [[ $response != "o" ]]; then
+                    echo "Ignorer $fichierA"
                     continue
                 fi
             fi
             if [[ $dryrun -eq 1 ]]; then
-                echo "Would copy $fichierA to $fichierB"
+                echo "Copierait $fichierA vers $fichierB"
             else
                 cp -d "$fichierA" "$fichierB"
                 echo "Le fichier $nomFichier a été copié de A vers B."
+                ((filesCopiedFromAtoB++))
+                ((totalFiles++))
             fi
             # Si le fichier est un lien symbolique, incrémenter le compteur
             if [[ -L $fichierA ]]; then
@@ -200,24 +217,26 @@ synchroniser() {
                 echo "Voulez-vous continuer la synchronisation de ce fichier ? (Oui/Non)"
                 read reponse
                 if [[ $reponse == "Non" ]]; then
-                                        echo "Exclusion : $fichierB"
+                    echo "Exclusion : $fichierB"
                     continue
                 fi
             fi
             # Copier le fichier de B vers A
             if [[ $interactive -eq 1 ]]; then
-                echo "Are you sure you want to copy $fichierB to $fichierA? (y/n)"
+                echo "Voulez-vous copier $fichierB vers $fichierA ? (o/n)"
                 read response
-                if [[ $response != "y" ]]; then
-                    echo "Skipping $fichierB"
+                if [[ $response != "o" ]]; then
+                    echo "Ignorer $fichierB"
                     continue
                 fi
             fi
             if [[ $dryrun -eq 1 ]]; then
-                echo "Would copy $fichierB to $fichierA"
+                echo "Copierait $fichierB vers $fichierA"
             else
                 cp -d "$fichierB" "$fichierA"
                 echo "Le fichier $nomFichier a été copié de B vers A."
+                ((filesCopiedFromBtoA++))
+                ((totalFiles++))
             fi
             # Si le fichier est un lien symbolique, incrémenter le compteur
             if [[ -L $fichierB ]]; then
@@ -236,7 +255,13 @@ mkdir -p "$HOME/.synchro"
 
 # Appeler la fonction de synchronisation
 synchroniser $pathA $pathB
-# Afficher le nombre de liens symboliques synchronisés
-echo "Synchronisation terminée. $liensSymboliques liens symboliques ont été synchronisés."
-echo ""
 
+# Afficher le résumé de la synchronisation
+echo "----------------------------------------"
+echo "RÉSUMÉ DE LA SYNCHRONISATION"
+echo "----------------------------------------"
+echo "Nombre total de fichiers synchronisés : $totalFiles"
+echo "Fichiers copiés de A vers B : $filesCopiedFromAtoB"
+echo "Fichiers copiés de B vers A : $filesCopiedFromBtoA"
+echo "Conflits résolus : $conflictsResolved"
+echo "----------------------------------------"
