@@ -1,4 +1,38 @@
-  GNU nano 6.2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             LO14.sh                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       #!/bin/bash
+#!/bin/bash
+
+# Help function
+usage() {
+    echo "Usage: $0 [-i] [-d] path1 path2"
+    echo "  -i    Interactive mode. Ask for confirmation before overwriting files."
+    echo "  -d    Dry run. Show what would be done, without actually doing it."
+    exit 1
+}
+
+# Parse options
+interactive=0
+dryrun=0
+while getopts "idh" opt; do
+    case ${opt} in
+        i)
+            interactive=1
+            ;;
+        d)
+            dryrun=1
+            ;;
+        h)
+            usage
+            ;;
+        \?)
+            usage
+            ;;
+    esac
+done
+shift $((OPTIND -1))
+
+# Check number of arguments
+if [[ $# -ne 2 ]]; then
+    usage
+fi
 
 # Vérifier si le script est exécuté en tant que root
 if [[ $EUID -ne 0 ]]; then
@@ -75,7 +109,7 @@ synchroniser() {
                     # Résoudre le conflit en copiant les métadonnées du fichier qui est conforme au journal
                     if [[ $(shasum "$fichierA") == $(cat "$HOME/.synchro/$(basename $pathA)_$nomFichier") ]]; then
                         chown --reference="$fichierA" "$fichierB"
-                        chmod --reference="$fichierA" "$fichierB"
+                       chmod --reference="$fichierA" "$fichierB"
                         touch --reference="$fichierA" "$fichierB"
                         echo "Les métadonnées du fichier B ont été mises à jour pour correspondre à celles du fichier A."
                     else
@@ -90,16 +124,52 @@ synchroniser() {
                     echo "Veuillez entrer le chemin du fichier que vous souhaitez conserver :"
                     read fichierConserve
                     if [[ $fichierConserve == $fichierA ]]; then
-                        cp -d "$fichierA" "$fichierB"
+                        if [[ $interactive -eq 1 ]]; then
+                            echo "Are you sure you want to overwrite $fichierB with $fichierA? (y/n)"
+                            read response
+                            if [[ $response != "y" ]]; then
+                                echo "Skipping $fichierA"
+                                continue
+                            fi
+                        fi
+                        if [[ $dryrun -eq 1 ]]; then
+                            echo "Would copy $fichierA to $fichierB"
+                        else
+                            cp -d "$fichierA" "$fichierB"
+                        fi
                     else
-                        cp -d "$fichierB" "$fichierA"
+                        if [[ $interactive -eq 1 ]]; then
+                            echo "Are you sure you want to overwrite $fichierA with $fichierB? (y/n)"
+                            read response
+                            if [[ $response != "y" ]]; then
+                                echo "Skipping $fichierB"
+                                continue
+                            fi
+                        fi
+                        if [[ $dryrun -eq 1 ]]; then
+                            echo "Would copy $fichierB to $fichierA"
+                        else
+                            cp -d "$fichierB" "$fichierA"
+                        fi
                     fi
                 fi
             fi
         else
             # Copier le fichier de A vers B
-            cp -d "$fichierA" "$fichierB"
-            echo "Le fichier $nomFichier a été copié de A vers B."
+            if [[ $interactive -eq 1 ]]; then
+                echo "Are you sure you want to copy $fichierA to $fichierB? (y/n)"
+                read response
+                if [[ $response != "y" ]]; then
+                    echo "Skipping $fichierA"
+                    continue
+                fi
+            fi
+            if [[ $dryrun -eq 1 ]]; then
+                echo "Would copy $fichierA to $fichierB"
+            else
+                cp -d "$fichierA" "$fichierB"
+                echo "Le fichier $nomFichier a été copié de A vers B."
+            fi
             # Si le fichier est un lien symbolique, incrémenter le compteur
             if [[ -L $fichierA ]]; then
                 ((liensSymboliques++))
@@ -130,13 +200,25 @@ synchroniser() {
                 echo "Voulez-vous continuer la synchronisation de ce fichier ? (Oui/Non)"
                 read reponse
                 if [[ $reponse == "Non" ]]; then
-                    echo "Exclusion : $fichierB"
+                                        echo "Exclusion : $fichierB"
                     continue
                 fi
             fi
             # Copier le fichier de B vers A
-            cp -d "$fichierB" "$fichierA"
-            echo "Le fichier $nomFichier a été copié de B vers A."
+            if [[ $interactive -eq 1 ]]; then
+                echo "Are you sure you want to copy $fichierB to $fichierA? (y/n)"
+                read response
+                if [[ $response != "y" ]]; then
+                    echo "Skipping $fichierB"
+                    continue
+                fi
+            fi
+            if [[ $dryrun -eq 1 ]]; then
+                echo "Would copy $fichierB to $fichierA"
+            else
+                cp -d "$fichierB" "$fichierA"
+                echo "Le fichier $nomFichier a été copié de B vers A."
+            fi
             # Si le fichier est un lien symbolique, incrémenter le compteur
             if [[ -L $fichierB ]]; then
                 ((liensSymboliques++))
@@ -154,7 +236,6 @@ mkdir -p "$HOME/.synchro"
 
 # Appeler la fonction de synchronisation
 synchroniser $pathA $pathB
-
 # Afficher le nombre de liens symboliques synchronisés
 echo "Synchronisation terminée. $liensSymboliques liens symboliques ont été synchronisés."
 echo ""
