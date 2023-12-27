@@ -71,7 +71,32 @@ est_exclu() {
     done
     return 1
 }
- 
+
+pushToJournal(){
+        newJournal="$HOME/.synchro2"
+        if [[ ! -f newJournal ]];then 
+                touch "$newJournal"
+        fi
+        fichier=$1
+        echo "$pwd/$fichier $(stat -c "%y %U %G %a" "$fichier")" >> "$newJournal"
+        echo "$fichier has been added to new journal"
+
+         
+}
+getFromJournal(){
+        journal="$HOME/.synchro"
+        fichier=$1
+        journalInfos="$(grep "^$@ " "$journal")"
+        echo "$journalInfos"
+
+}
+syncJournal(){
+        newJournal="$HOME/.synchro2"
+        journal="$HOME/.synchro"
+        mv "$newJournal" "$journal"
+}
+
+
 syncFile(){
 local fichierA=$1
 local fichierB=$2
@@ -225,8 +250,9 @@ synchroniser() {
             fi
         fi
         # Mettre à jour le journal avec le hachage SHA du fichier synchronisé
+        pushToJournal $fichierA
         #echo "$(shasum "$fichierA") $fichierA" > "$HOME/.synchro/$(basename $pathA)_$nomFichier"
-        echo "Synchronisation effectuée le $(date)" >> "$HOME/.synchro/$(basename $pathA)_$nomFichier"
+        #echo "Synchronisation effectuée le $(date)" >> "$HOME/.synchro/$(basename $pathA)_$nomFichier"
         echo ""
     else
            echo "No files found in $pathA" 
@@ -280,8 +306,9 @@ synchroniser() {
             fi
         fi
         # Mettre à jour le journal avec le hachage SHA du fichier synchronisé
+        pushToJournal "$fichierB"
         #echo "$(shasum "$fichierB") $fichierB" > "$HOME/.synchro/$(basename $pathB)_$nomFichier"
-        echo "Synchronisation effectuée le $(date)" >> "$HOME/.synchro/$(basename $pathB)_$nomFichier"
+        #echo "Synchronisation effectuée le $(date)" >> "$HOME/.synchro/$(basename $pathB)_$nomFichier"
         echo ""
     else
             echo "No files found in $pathB"
@@ -289,12 +316,11 @@ synchroniser() {
     done
 }
  
-# Créer le répertoire pour le fichier journal sil n'existe pas
-mkdir -p "$HOME/.synchro"
+
  
 # Appeler la fonction de synchronisation
 synchroniser $pathA $pathB
- 
+syncJournal 
 # Afficher le résumé de la synchronisation
 echo "----------------------------------------"
 echo "RÉSUMÉ DE LA SYNCHRONISATION"
