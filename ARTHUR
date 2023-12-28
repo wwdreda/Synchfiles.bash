@@ -79,7 +79,7 @@ pushToJournal(){
         fi
         path="$1"
         fichier="$2"
-        echo "$fichier $(stat -c "%y %U %G %a" "${path}/${fichier}")" >> "$newJournal"
+        echo "$fichier $(stat -c "%y %U %G %a" "${path}/${fichier}") $(shasum "${path}/${fichier}" | cut -f1 -d" " )" >> "$newJournal"
         echo "$fichier has been added to new journal"
 
          
@@ -213,7 +213,9 @@ synchroniser() {
 
  
     # Parcourir tous les fichiers dans le système de fichiers A
-    for fichier in "$(ls ${absPathA})"; do
+    for absFichier in "${absPathA}"/*; do
+            local fichier=$(basename "$absFichier")
+
         local fichierA="${absPathA}/${fichier}"
         echo "fichier examiné : $fichierA"
         if [ -e "$fichierA" ]; then
@@ -290,7 +292,8 @@ synchroniser() {
     done
  
     # Parcourir tous les fichiers dans le système de fichiers B
-    for fichier in "$(ls ${absPathB})"; do
+    for absFichier in "${absPathB}"/*; do
+            local fichier=$(basename ${absFichier})
         local fichierB="${absPathB}/${fichier}"
         echo "fichier examiné : $fichierB"
         if [ -e "$fichierB" ]; then
@@ -344,12 +347,13 @@ synchroniser() {
                 if [[ -L $fichierB ]]; then
                     ((liensSymboliques++))
                 fi
+            
+                # Mettre à jour le journal avec le hachage SHA du fichier synchronisé
+                pushToJournal "$pathA" "${relativePath}/${fichier}"
+                #echo "$(shasum "$fichierB") $fichierB" > "$HOME/.synchro/$(basename $pathB)_$nomFichier"
+                #echo "Synchronisation effectuée le $(date)" >> "$HOME/.synchro/$(basename $pathB)_$nomFichier"
+                echo ""
             fi
-            # Mettre à jour le journal avec le hachage SHA du fichier synchronisé
-            pushToJournal "$pathA" "${relativePath}/${fichier}"
-            #echo "$(shasum "$fichierB") $fichierB" > "$HOME/.synchro/$(basename $pathB)_$nomFichier"
-            #echo "Synchronisation effectuée le $(date)" >> "$HOME/.synchro/$(basename $pathB)_$nomFichier"
-            echo ""
         else
                 echo "No files found in $pathB"
         fi
