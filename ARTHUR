@@ -191,128 +191,139 @@ fi
  
 # Fonction pour synchroniser les fichiers
 synchroniser() {
+    #la on a pathA = /userA/documents/repA/doc1/doc2/
+    # et     pathB = /userB/downloads/repB/doc1/doc2/
+    #on va regader les fichiers dans pathA puis pathB
+
+    #le problème c'est que dans le journal, ce serait bien de stocker le chemin doc1/doc2/fichier et non le chemin de pathA ...
+
+    #on pourrait donc appeler synchro avec pathA, pathB ("/userX/.../repX"), et relativePath=doc1/doc2/
+    #on remplacerait les variables actuelles pathA et pathB par absPathA et absPathB (abs comme absolute)
+    #il faudrait remplacer [for fichierA in "$pathA"/*] par [for fichier in $(ls $absPathA)]
+
     local pathA=$1
     local pathB=$2
  
     # Parcourir tous les fichiers dans le système de fichiers A
     for fichierA in "$pathA"/*; do
-    if [ -e "$fichierA" ]; then
-    
-        # Vérifier si le fichier/répertoire est dans la liste des exclusions
-        if est_exclu "$fichierA"; then
-            echo "Exclusion : $fichierA"
-            continue
-        fi
-        # Obtenir le nom du fichier
-        nomFichier=$(basename "$fichierA")
-        # Chemin vers le fichier correspondant dans le système de fichiers B
-        fichierB="$pathB/$nomFichier"
-        # Vérifier si le fichier existe dans le système de fichiers B
-        if [[ -e $fichierB ]]; then
-            # Si le fichier est plus grand que 1GB
-            if [[ $(stat -c%s "$fichierA") -gt 1073741824 ]]; then
-                echo "Le fichier $nomFichier est très grand et peut prendre du temps à synchroniser."
-                echo "Voulez-vous continuer la synchronisation de ce fichier ? (Oui/Non)"
-                read reponse
-                if [[ $reponse == "Non" ]]; then
-                    echo "Exclusion : $fichierA"
-                    continue
+        if [ -e "$fichierA" ]; then
+        
+            # Vérifier si le fichier/répertoire est dans la liste des exclusions
+            if est_exclu "$fichierA"; then
+                echo "Exclusion : $fichierA"
+                continue
+            fi
+            # Obtenir le nom du fichier
+            nomFichier=$(basename "$fichierA")
+            # Chemin vers le fichier correspondant dans le système de fichiers B
+            fichierB="$pathB/$nomFichier"
+            # Vérifier si le fichier existe dans le système de fichiers B
+            if [[ -e $fichierB ]]; then
+                # Si le fichier est plus grand que 1GB
+                if [[ $(stat -c%s "$fichierA") -gt 1073741824 ]]; then
+                    echo "Le fichier $nomFichier est très grand et peut prendre du temps à synchroniser."
+                    echo "Voulez-vous continuer la synchronisation de ce fichier ? (Oui/Non)"
+                    read reponse
+                    if [[ $reponse == "Non" ]]; then
+                        echo "Exclusion : $fichierA"
+                        continue
+                    fi
                 fi
-            fi
-            # Si les deux fichiers sont des répertoires, descendre récursivement
-            if [[ -d $fichierA && -d $fichierB ]]; then
-                synchroniser "$fichierA" "$fichierB"
-            # Si les deux fichiers sont des fichiers ordinaires
-            elif [[ -f $fichierA && -f $fichierB ]]; then
-                syncFile "$fichierA" "$fichierB" "pathA" "pathB"
-            fi
-        else
-            # Copier le fichier de A vers B
-            if [[ $interactive -eq 1 ]]; then
-                echo "Voulez-vous copier $fichierA vers $fichierB ? (o/n)"
-                read response
-                if [[ $response != "o" ]]; then
-                    echo "Ignorer $fichierA"
-                    continue
+                # Si les deux fichiers sont des répertoires, descendre récursivement
+                if [[ -d $fichierA && -d $fichierB ]]; then
+                    synchroniser "$fichierA" "$fichierB"
+                # Si les deux fichiers sont des fichiers ordinaires
+                elif [[ -f $fichierA && -f $fichierB ]]; then
+                    syncFile "$fichierA" "$fichierB" "pathA" "pathB"
                 fi
-            fi
-            if [[ $dryrun -eq 1 ]]; then
-                echo "Copierait $fichierA vers $fichierB"
             else
-                cp -r "$fichierA" "$fichierB"
-                echo "Le fichier $nomFichier a été copié de A vers B."
-                ((filesCopiedFromAtoB++))
-                ((totalFiles++))
+                # Copier le fichier de A vers B
+                if [[ $interactive -eq 1 ]]; then
+                    echo "Voulez-vous copier $fichierA vers $fichierB ? (o/n)"
+                    read response
+                    if [[ $response != "o" ]]; then
+                        echo "Ignorer $fichierA"
+                        continue
+                    fi
+                fi
+                if [[ $dryrun -eq 1 ]]; then
+                    echo "Copierait $fichierA vers $fichierB"
+                else
+                    cp -r "$fichierA" "$fichierB"
+                    echo "Le fichier $nomFichier a été copié de A vers B."
+                    ((filesCopiedFromAtoB++))
+                    ((totalFiles++))
+                fi
+                # Si le fichier est un lien symbolique, incrémenter le compteur
+                if [[ -L $fichierA ]]; then
+                    ((liensSymboliques++))
+                fi
             fi
-            # Si le fichier est un lien symbolique, incrémenter le compteur
-            if [[ -L $fichierA ]]; then
-                ((liensSymboliques++))
-            fi
+            # Mettre à jour le journal avec le hachage SHA du fichier synchronisé
+            pushToJournal $fichierA
+            #echo "$(shasum "$fichierA") $fichierA" > "$HOME/.synchro/$(basename $pathA)_$nomFichier"
+            #echo "Synchronisation effectuée le $(date)" >> "$HOME/.synchro/$(basename $pathA)_$nomFichier"
+            echo ""
+        else
+            echo "No files found in $pathA" 
         fi
-        # Mettre à jour le journal avec le hachage SHA du fichier synchronisé
-        pushToJournal $fichierA
-        #echo "$(shasum "$fichierA") $fichierA" > "$HOME/.synchro/$(basename $pathA)_$nomFichier"
-        #echo "Synchronisation effectuée le $(date)" >> "$HOME/.synchro/$(basename $pathA)_$nomFichier"
-        echo ""
-    else
-           echo "No files found in $pathA" 
-    fi
     done
  
     # Parcourir tous les fichiers dans le système de fichiers B
     for fichierB in "$pathB"/*; do
-    if [ -e "$fichierB" ]; then
-        # Vérifier si le fichier/répertoire est dans la liste des exclusions
-        if est_exclu "$fichierB"; then
-            echo "Exclusion : $fichierB"
-            continue
-        fi
-        # Obtenir le nom du fichier
-        nomFichier=$(basename "$fichierB")
-        # Chemin vers le fichier correspondant dans le système de fichiers A
-        fichierA="$pathA/$nomFichier"
-        # Vérifier si le fichier existe dans le système de fichiers A
-        if [[ ! -e $fichierA ]]; then
-            # Si le fichier est plus grand que 1GB
-            if [[ $(stat -c%s "$fichierB") -gt 1073741824 ]]; then
-                echo "Le fichier $nomFichier est très grand et peut prendre du temps à synchroniser."
-                echo "Voulez-vous continuer la synchronisation de ce fichier ? (Oui/Non)"
-                read reponse
-                if [[ $reponse == "Non" ]]; then
-                    echo "Exclusion : $fichierB"
-                    continue
+        if [ -e "$fichierB" ]; then
+            # Vérifier si le fichier/répertoire est dans la liste des exclusions
+            if est_exclu "$fichierB"; then
+                echo "Exclusion : $fichierB"
+                continue
+            fi
+            # Obtenir le nom du fichier
+            nomFichier=$(basename "$fichierB")
+            # Chemin vers le fichier correspondant dans le système de fichiers A
+            fichierA="$pathA/$nomFichier"
+            # Vérifier si le fichier existe dans le système de fichiers A
+            if [[ ! -e $fichierA ]]; then
+
+                # Si le fichier est plus grand que 1GB
+                if [[ $(stat -c%s "$fichierB") -gt 1073741824 ]]; then
+                    echo "Le fichier $nomFichier est très grand et peut prendre du temps à synchroniser."
+                    echo "Voulez-vous continuer la synchronisation de ce fichier ? (Oui/Non)"
+                    read reponse
+                    if [[ $reponse == "Non" ]]; then
+                        echo "Exclusion : $fichierB"
+                        continue
+                    fi
+                fi
+                # Copier le fichier de B vers A
+                if [[ $interactive -eq 1 ]]; then
+                    echo "Voulez-vous copier $fichierB vers $fichierA ? (o/n)"
+                    read response
+                    if [[ $response != "o" ]]; then
+                        echo "Ignorer $fichierB"
+                        continue
+                    fi
+                fi
+                if [[ $dryrun -eq 1 ]]; then
+                    echo "Copierait $fichierB vers $fichierA"
+                else
+                    cp -r "$fichierB" "$fichierA"
+                    echo "Le fichier $nomFichier a été copié de B vers A."
+                    ((filesCopiedFromBtoA++))
+                    ((totalFiles++))
+                fi
+                # Si le fichier est un lien symbolique, incrémenter le compteur
+                if [[ -L $fichierB ]]; then
+                    ((liensSymboliques++))
                 fi
             fi
-            # Copier le fichier de B vers A
-            if [[ $interactive -eq 1 ]]; then
-                echo "Voulez-vous copier $fichierB vers $fichierA ? (o/n)"
-                read response
-                if [[ $response != "o" ]]; then
-                    echo "Ignorer $fichierB"
-                    continue
-                fi
-            fi
-            if [[ $dryrun -eq 1 ]]; then
-                echo "Copierait $fichierB vers $fichierA"
-            else
-                cp -r "$fichierB" "$fichierA"
-                echo "Le fichier $nomFichier a été copié de B vers A."
-                ((filesCopiedFromBtoA++))
-                ((totalFiles++))
-            fi
-            # Si le fichier est un lien symbolique, incrémenter le compteur
-            if [[ -L $fichierB ]]; then
-                ((liensSymboliques++))
-            fi
+            # Mettre à jour le journal avec le hachage SHA du fichier synchronisé
+            pushToJournal "$fichierB"
+            #echo "$(shasum "$fichierB") $fichierB" > "$HOME/.synchro/$(basename $pathB)_$nomFichier"
+            #echo "Synchronisation effectuée le $(date)" >> "$HOME/.synchro/$(basename $pathB)_$nomFichier"
+            echo ""
+        else
+                echo "No files found in $pathB"
         fi
-        # Mettre à jour le journal avec le hachage SHA du fichier synchronisé
-        pushToJournal "$fichierB"
-        #echo "$(shasum "$fichierB") $fichierB" > "$HOME/.synchro/$(basename $pathB)_$nomFichier"
-        #echo "Synchronisation effectuée le $(date)" >> "$HOME/.synchro/$(basename $pathB)_$nomFichier"
-        echo ""
-    else
-            echo "No files found in $pathB"
-    fi
     done
 }
  
