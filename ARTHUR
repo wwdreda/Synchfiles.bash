@@ -74,11 +74,12 @@ est_exclu() {
 
 pushToJournal(){
         newJournal="$HOME/.synchro2"
-        if [[ ! -f newJournal ]];then 
+        if [[ ! -f "$newJournal" ]];then 
                 touch "$newJournal"
         fi
-        fichier=$1
-        echo "$pwd/$fichier $(stat -c "%y %U %G %a" "$fichier")" >> "$newJournal"
+        path="$1"
+        fichier="$2"
+        echo "$fichier $(stat -c "%y %U %G %a" "${path}/${fichier}")" >> "$newJournal"
         echo "$fichier has been added to new journal"
 
          
@@ -98,90 +99,91 @@ syncJournal(){
 
 
 syncFile(){
-local fichierA=$1
-local fichierB=$2
- 
-local pathA=$3
-local pathB=$4
+    local pathA="$1"
+    local pathB="$2"
+    local relativePath="$3"
+    local fichierA="${pathA}/${relativePath}"
+    local fichierB="${pathB}/${relativePath}"
+    
 
-echo "shasum A : $(shasum "$fichierA")"
-echo "shasum B : $(shasum "$fichierB")"
-local shasumA=$(shasum "$fichierA" | cut -f1 -d" ")
-local shasumB=$(shasum "$fichierB" | cut -f1 -d" ")
+    echo "shasum A : $(shasum "$fichierA")"
+    echo "shasum B : $(shasum "$fichierB")"
+    local shasumA=$(shasum "$fichierA" | cut -f1 -d" ")
+    local shasumB=$(shasum "$fichierB" | cut -f1 -d" ")
 
-# Si les deux fichiers ont le même hash SHA
-if [[ "$shasumA" == "$shasumB" ]]; then
-    echo "Le fichier $nomFichier est déjà synchronisé."
-    # Conflit détecté
-    metadataA=$(stat -c "%y %U %G %a" "$fichierA")  # %z pour l'horodatage de modification
-    metadataB=$(stat -c "%y %U %G %a" "$fichierB")  # %z pour l'horodatage de modification
-    echo -e "metadataA : ${metadataA}\nmetadataB : ${metadataB}"
-    ((conflictsResolved++))
-    # Comparer le contenu des fichiers
-    if [[ "$(stat -c "%y %U %G %a" "$fichierA")" == "$(stat -c "%y %U %G %a" "$fichierB")" ]]; then
-        echo "Memes metadatas"
-    else
-        echo "Les fichiers ont le même contenu, mais diffèrent dans les métadonnées."
-        # Résoudre le conflit en copiant les métadonnées du fichier qui est conforme au journal
-        if [[ $(shasum "$fichierA") == $(cat "$HOME/.synchro/$(basename $pathA)_$nomFichier") ]]; then
-            chown --reference="$fichierA" "$fichierB"
-            chmod --reference="$fichierA" "$fichierB"
-            touch --reference="$fichierA" "$fichierB"
-            echo "Les métadonnées du fichier B ont été mises à jour pour correspondre à celles du fichier A."
-        else
-            chown --reference="$fichierB" "$fichierA"
-            chmod --reference="$fichierB" "$fichierA"
-            touch --reference="$fichierB" "$fichierA"
-            echo "Les métadonnées du fichier A ont été mises à jour pour correspondre à celles du fichier B."
-        fi
-        metadataA=$(stat -c "%y %U %G %a" "$fichierA")  # %z pour l'horodatage de modification
-        metadataB=$(stat -c "%y %U %G %a" "$fichierB")  # %z pour l'horodatage de modification
+    # Si les deux fichiers ont le même hash SHA
+    if [[ "$shasumA" == "$shasumB" ]]; then
+        echo "Le fichier $nomFichier est déjà synchronisé."
+        # Conflit détecté
+        metadataA=$(stat -c "%y %U %G %a" "$fichierA")  # %y pour l'horodatage de modification
+        metadataB=$(stat -c "%y %U %G %a" "$fichierB")  # %y pour l'horodatage de modification
         echo -e "metadataA : ${metadataA}\nmetadataB : ${metadataB}"
-    fi
-else # les données difèrent
-    #syncho les données 
-    echo "FichierA : $pathA/$fichierA"
-    echo "FichierB : $pathB/$fichierB"
-    echo "Les fichiers ont un contenu différent. Voici la différence :"
-    diff "$fichierA" "$fichierB"
-    echo "Veuillez entrer le chemin du fichier que vous souhaitez conserver :"
-    read fichierConserve
-    if [[ $fichierConserve == $fichierA ]]; then
-        if [[ $interactive -eq 1 ]]; then
-            echo "Voulez-vous écraser $fichierB avec $fichierA ? (o/n)"
-            read response
-            if [[ $response != "o" ]]; then
-                echo "Ignorer $fichierA"
-                continue
+        ((conflictsResolved++))
+        # Comparer le contenu des fichiers
+        if [[ "$(stat -c "%y %U %G %a" "$fichierA")" == "$(stat -c "%y %U %G %a" "$fichierB")" ]]; then
+            echo "Memes metadatas"
+        else
+            echo "Les fichiers ont le même contenu, mais diffèrent dans les métadonnées."
+            # Résoudre le conflit en copiant les métadonnées du fichier qui est conforme au journal
+            if [[ $(shasum "$fichierA") == $(cat "$HOME/.synchro/$(basename $pathA)_$nomFichier") ]]; then
+                chown --reference="$fichierA" "$fichierB"
+                chmod --reference="$fichierA" "$fichierB"
+                touch --reference="$fichierA" "$fichierB"
+                echo "Les métadonnées du fichier B ont été mises à jour pour correspondre à celles du fichier A."
+            else
+                chown --reference="$fichierB" "$fichierA"
+                chmod --reference="$fichierB" "$fichierA"
+                touch --reference="$fichierB" "$fichierA"
+                echo "Les métadonnées du fichier A ont été mises à jour pour correspondre à celles du fichier B."
+            fi
+            metadataA=$(stat -c "%y %U %G %a" "$fichierA")  # %z pour l'horodatage de modification
+            metadataB=$(stat -c "%y %U %G %a" "$fichierB")  # %z pour l'horodatage de modification
+            echo -e "metadataA : ${metadataA}\nmetadataB : ${metadataB}"
+        fi
+    else # les données difèrent
+        #syncho les données 
+        echo "FichierA : $fichierA"
+        echo "FichierB : $fichierB"
+        echo "Les fichiers ont un contenu différent. Voici la différence :"
+        diff "$fichierA" "$fichierB"
+        echo "Veuillez entrer le chemin du fichier que vous souhaitez conserver :"
+        read fichierConserve
+        if [[ $fichierConserve == $fichierA ]]; then
+            if [[ $interactive -eq 1 ]]; then
+                echo "Voulez-vous écraser $fichierB avec $fichierA ? (o/n)"
+                read response
+                if [[ $response != "o" ]]; then
+                    echo "Ignorer $fichierA"
+                    continue
+                fi
+            fi
+            if [[ $dryrun -eq 1 ]]; then
+                echo "Copierait $fichierA vers $fichierB"
+            else
+                cp -d "$fichierA" "$fichierB"
+                echo "Le fichier $nomFichier a été copié de A vers B."
+                ((filesCopiedFromAtoB++))
+                ((totalFiles++))
+            fi
+        else
+            if [[ $interactive -eq 1 ]]; then
+                echo "Voulez-vous écraser $fichierA avec $fichierB ? (o/n)"
+                read response
+                if [[ $response != "o" ]]; then
+                    echo "Ignorer $fichierB"
+                    continue
+                fi
+            fi
+            if [[ $dryrun -eq 1 ]]; then
+                echo "Copierait $fichierB vers $fichierA"
+            else
+                cp -d "$fichierB" "$fichierA"
+                echo "Le fichier $nomFichier a été copié de B vers A."
+                ((filesCopiedFromBtoA++))
+                ((totalFiles++))
             fi
         fi
-        if [[ $dryrun -eq 1 ]]; then
-            echo "Copierait $fichierA vers $fichierB"
-        else
-            cp -d "$fichierA" "$fichierB"
-            echo "Le fichier $nomFichier a été copié de A vers B."
-            ((filesCopiedFromAtoB++))
-            ((totalFiles++))
-        fi
-    else
-        if [[ $interactive -eq 1 ]]; then
-            echo "Voulez-vous écraser $fichierA avec $fichierB ? (o/n)"
-            read response
-            if [[ $response != "o" ]]; then
-                echo "Ignorer $fichierB"
-                continue
-            fi
-        fi
-        if [[ $dryrun -eq 1 ]]; then
-            echo "Copierait $fichierB vers $fichierA"
-        else
-            cp -d "$fichierB" "$fichierA"
-            echo "Le fichier $nomFichier a été copié de B vers A."
-            ((filesCopiedFromBtoA++))
-            ((totalFiles++))
-        fi
     fi
-fi
  
  
 }
@@ -201,22 +203,27 @@ synchroniser() {
     #on remplacerait les variables actuelles pathA et pathB par absPathA et absPathB (abs comme absolute)
     #il faudrait remplacer [for fichierA in "$pathA"/*] par [for fichier in $(ls $absPathA)]
 
-    local pathA=$1
-    local pathB=$2
+    local pathA="$1"
+    local pathB="$2"
+    local relativePath="$3"
+    local absPathA="${pathA}/${relativePath}"
+    local absPathB="${pathB}/${relativePath}"
+
  
     # Parcourir tous les fichiers dans le système de fichiers A
-    for fichierA in "$pathA"/*; do
+    for fichier in "$(ls ${absPathA})"; do
+        local fichierA="${absPathA}/${fichier}"
+        echo "fichier examiné : $fichierA"
         if [ -e "$fichierA" ]; then
+            echo "le fichier existe !"
         
             # Vérifier si le fichier/répertoire est dans la liste des exclusions
             if est_exclu "$fichierA"; then
                 echo "Exclusion : $fichierA"
                 continue
             fi
-            # Obtenir le nom du fichier
-            nomFichier=$(basename "$fichierA")
             # Chemin vers le fichier correspondant dans le système de fichiers B
-            fichierB="$pathB/$nomFichier"
+            fichierB="${absPathB}/${fichier}"
             # Vérifier si le fichier existe dans le système de fichiers B
             if [[ -e $fichierB ]]; then
                 # Si le fichier est plus grand que 1GB
@@ -231,10 +238,12 @@ synchroniser() {
                 fi
                 # Si les deux fichiers sont des répertoires, descendre récursivement
                 if [[ -d $fichierA && -d $fichierB ]]; then
-                    synchroniser "$fichierA" "$fichierB"
+                    echo "c'est un dossier, on appelle synchro avec $pathA $pathB ${relativePath}/${fichier}"
+                    synchroniser "$pathA" "$pathB" "${relativePath}/${fichier}"
                 # Si les deux fichiers sont des fichiers ordinaires
                 elif [[ -f $fichierA && -f $fichierB ]]; then
-                    syncFile "$fichierA" "$fichierB" "pathA" "pathB"
+
+                    syncFile "$pathA" "$pathB" "${relativePath}/${fichier}"
                 fi
             else
                 # Copier le fichier de A vers B
@@ -260,29 +269,30 @@ synchroniser() {
                 fi
             fi
             # Mettre à jour le journal avec le hachage SHA du fichier synchronisé
-            pushToJournal $fichierA
+            pushToJournal "$pathA" "${relativePath}/${fichier}"
             #echo "$(shasum "$fichierA") $fichierA" > "$HOME/.synchro/$(basename $pathA)_$nomFichier"
             #echo "Synchronisation effectuée le $(date)" >> "$HOME/.synchro/$(basename $pathA)_$nomFichier"
-            echo ""
+           
         else
             echo "No files found in $pathA" 
         fi
     done
  
     # Parcourir tous les fichiers dans le système de fichiers B
-    for fichierB in "$pathB"/*; do
+    for fichier in "$(ls ${absPathB})"; do
+        local fichierB="${absPathB}/${fichier}"
+        echo "fichier examiné : $fichierB"
         if [ -e "$fichierB" ]; then
+        echo "le fichier existe !"
             # Vérifier si le fichier/répertoire est dans la liste des exclusions
             if est_exclu "$fichierB"; then
                 echo "Exclusion : $fichierB"
                 continue
             fi
-            # Obtenir le nom du fichier
-            nomFichier=$(basename "$fichierB")
             # Chemin vers le fichier correspondant dans le système de fichiers A
-            fichierA="$pathA/$nomFichier"
+            fichierA="${absPathA}/${fichier}"
             # Vérifier si le fichier existe dans le système de fichiers A
-            if [[ ! -e $fichierA ]]; then
+            if [[ ! -e ${fichierA} ]]; then
 
                 # Si le fichier est plus grand que 1GB
                 if [[ $(stat -c%s "$fichierB") -gt 1073741824 ]]; then
@@ -317,7 +327,7 @@ synchroniser() {
                 fi
             fi
             # Mettre à jour le journal avec le hachage SHA du fichier synchronisé
-            pushToJournal "$fichierB"
+            pushToJournal "$pathA" "${relativePath}/${fichier}"
             #echo "$(shasum "$fichierB") $fichierB" > "$HOME/.synchro/$(basename $pathB)_$nomFichier"
             #echo "Synchronisation effectuée le $(date)" >> "$HOME/.synchro/$(basename $pathB)_$nomFichier"
             echo ""
@@ -330,7 +340,7 @@ synchroniser() {
 
  
 # Appeler la fonction de synchronisation
-synchroniser $pathA $pathB
+synchroniser "$pathA" "$pathB" "."
 syncJournal 
 # Afficher le résumé de la synchronisation
 echo "----------------------------------------"
