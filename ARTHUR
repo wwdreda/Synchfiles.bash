@@ -125,6 +125,8 @@ syncFile(){
         else
             echo "Les fichiers ont le même contenu, mais diffèrent dans les métadonnées."
             # Résoudre le conflit en copiant les métadonnées du fichier qui est conforme au journal
+
+#LA IL FAUT MODIFIER LA RECUPERATION DU HASH
             if [[ $(shasum "$fichierA") == $(cat "$HOME/.synchro/$(basename $pathA)_$nomFichier") ]]; then
                 chown --reference="$fichierA" "$fichierB"
                 chmod --reference="$fichierA" "$fichierB"
@@ -251,6 +253,8 @@ synchroniser() {
                 #   > il faut regarder dan sle journal puis supprimer le fichier dans le repertoire A
                 # - le fichier n'existait pas avant, il a donc été créé
                 #   > il faut donc le créer dans B et l'ajouter au journal
+                echo "le fichier n'est pas dans le repB, est il dans le journal?"
+                echo "$(getFromJournal $(echo "${relativePath}/${fichier}"))"
 
 
                 # Copier le fichier de A vers B
@@ -303,9 +307,11 @@ synchroniser() {
 
                 #deux cas : 
                 # - le fichier était là lors de la derniere synchro, il a donc été supprimé
-                #   > il faut regarder dan sle journal puis supprimer le fichier dans le repertoire B
+                #   > il faut regarder dans le journal puis supprimer le fichier dans le repertoire B
                 # - le fichier n'existait pas avant, il a donc été créé
                 #   > il faut donc le créer dans A et l'ajouter au journal
+                echo "le fichier n'est pas dans le repA, est il dans le journal?"
+                echo "$(getFromJournal $(echo "${relativePath}/${fichier}"))"
 
                 # Si le fichier est plus grand que 1GB
                 if [[ $(stat -c%s "$fichierB") -gt 1073741824 ]]; then
