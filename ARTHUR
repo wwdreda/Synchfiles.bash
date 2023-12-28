@@ -125,9 +125,10 @@ syncFile(){
         else
             echo "Les fichiers ont le même contenu, mais diffèrent dans les métadonnées."
             # Résoudre le conflit en copiant les métadonnées du fichier qui est conforme au journal
-
-#LA IL FAUT MODIFIER LA RECUPERATION DU HASH
-            if [[ $(shasum "$fichierA") == $(cat "$HOME/.synchro/$(basename $pathA)_$nomFichier") ]]; then
+            journalInfos=$getFromJournal "$relativePath"
+            shaJoural=$(echo "$journalInfos" | rev | cut -d'.' -f 1 | rev)
+            #si le hash du journal est le meme que celui de A (plus tard, il faudra faire ça que pour la date, pour permette de modifier les permissions)
+            if [[ $(shasum "$fichierA" | cut -f1 -d" ")=="$shaJournal" ]]; then
                 chown --reference="$fichierA" "$fichierB"
                 chmod --reference="$fichierA" "$fichierB"
                 touch --reference="$fichierA" "$fichierB"
@@ -138,8 +139,8 @@ syncFile(){
                 touch --reference="$fichierB" "$fichierA"
                 echo "Les métadonnées du fichier A ont été mises à jour pour correspondre à celles du fichier B."
             fi
-            metadataA=$(stat -c "%y %U %G %a" "$fichierA")  # %z pour l'horodatage de modification
-            metadataB=$(stat -c "%y %U %G %a" "$fichierB")  # %z pour l'horodatage de modification
+            metadataA=$(stat -c "%y %U %G %a" "$fichierA")  # %y pour l'horodatage de modification
+            metadataB=$(stat -c "%y %U %G %a" "$fichierB")  # %y pour l'horodatage de modification
             echo -e "metadataA : ${metadataA}\nmetadataB : ${metadataB}"
         fi
     else # les données difèrent
@@ -360,7 +361,7 @@ synchroniser() {
     done
 }
  
-
+echo "get from journal : $(getFromJournal "doc1/doc2/fichier1")"
  
 # Appeler la fonction de synchronisation
 synchroniser "$pathA" "$pathB" "."
