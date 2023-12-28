@@ -246,6 +246,13 @@ synchroniser() {
                     syncFile "$pathA" "$pathB" "${relativePath}/${fichier}"
                 fi
             else
+                #deux cas : 
+                # - le fichier était là lors de la derniere synchro, il a donc été supprimé
+                #   > il faut regarder dan sle journal puis supprimer le fichier dans le repertoire A
+                # - le fichier n'existait pas avant, il a donc été créé
+                #   > il faut donc le créer dans B et l'ajouter au journal
+
+
                 # Copier le fichier de A vers B
                 if [[ $interactive -eq 1 ]]; then
                     echo "Voulez-vous copier $fichierA vers $fichierB ? (o/n)"
@@ -293,6 +300,12 @@ synchroniser() {
             fichierA="${absPathA}/${fichier}"
             # Vérifier si le fichier existe dans le système de fichiers A
             if [[ ! -e ${fichierA} ]]; then
+
+                #deux cas : 
+                # - le fichier était là lors de la derniere synchro, il a donc été supprimé
+                #   > il faut regarder dan sle journal puis supprimer le fichier dans le repertoire B
+                # - le fichier n'existait pas avant, il a donc été créé
+                #   > il faut donc le créer dans A et l'ajouter au journal
 
                 # Si le fichier est plus grand que 1GB
                 if [[ $(stat -c%s "$fichierB") -gt 1073741824 ]]; then
