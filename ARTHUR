@@ -111,6 +111,10 @@ syncFile(){
     local shasumA=$(shasum "$fichierA" | cut -f1 -d" ")
     local shasumB=$(shasum "$fichierB" | cut -f1 -d" ")
 
+    journalInfos="$(getFromJournal "$relativePath")"
+	echo "journalInfos : $journalInfos"
+    shaJournal="$(echo $journalInfos | rev | cut -f1 -d" " | rev)"
+
     # Si les deux fichiers ont le même hash SHA
     if [[ "$shasumA" == "$shasumB" ]]; then
         echo "Le fichier $nomFichier est déjà synchronisé."
@@ -125,67 +129,111 @@ syncFile(){
         else
             echo "Les fichiers ont le même contenu, mais diffèrent dans les métadonnées."
             # Résoudre le conflit en copiant les métadonnées du fichier qui est conforme au journal
-            journalInfos=$getFromJournal "$relativePath"
-            shaJoural=$(echo "$journalInfos" | rev | cut -d'.' -f 1 | rev)
-            #si le hash du journal est le meme que celui de A (plus tard, il faudra faire ça que pour la date, pour permette de modifier les permissions)
-            if [[ $(shasum "$fichierA" | cut -f1 -d" ")=="$shaJournal" ]]; then
-                chown --reference="$fichierA" "$fichierB"
-                chmod --reference="$fichierA" "$fichierB"
-                touch --reference="$fichierA" "$fichierB"
-                echo "Les métadonnées du fichier B ont été mises à jour pour correspondre à celles du fichier A."
-            else
-                chown --reference="$fichierB" "$fichierA"
-                chmod --reference="$fichierB" "$fichierA"
-                touch --reference="$fichierB" "$fichierA"
-                echo "Les métadonnées du fichier A ont été mises à jour pour correspondre à celles du fichier B."
+	        
+            timeA=$(date -d "$(stat -c "%y" "$fichierA")" +"%s.%N")
+            timeB=$(date -d "$(stat -c "%y" "$fichierB")" +"%s.%N")
+            echo "$timeA"
+            echo "$timeB"
+
+            
+            #si seule la date change, on garde la plus ancienne
+            echo -e "stat A : $(stat -c "%U %G %a" "$fichierA")\nstat B : $(stat -c "%U %G %a" "$fichierB")"
+	        if [[ "$(stat -c "%U %G %a" "$fichierA")" == "$(stat -c "%U %G %a" "$fichierB")" ]]; then
+		        echo "seule la date de modification a changé" 
+                #si la date A est plus ancienne
+		        if (( $(echo "$timeA < $timeB" | bc -l) )); then
+                    echo "la date A est plus ancienne"
+                    chown --reference="$fichierA" "$fichierB"
+                    chmod --reference="$fichierA" "$fichierB"
+                    touch --reference="$fichierA" "$fichierB"
+                    echo "la date de b a été actualisée"
+		        else
+                #sinon si la date B est plus ancienne
+                    echo "la date de B est la plus ancienne"
+                    chown --reference="$fichierB" "$fichierA"
+                    chmod --reference="$fichierB" "$fichierA"
+                    touch --reference="$fichierB" "$fichierA"
+                    echo "la date de a a été actualisée"
+                fi
+		
+            else # d'autres métadonnées que la date ont changé, on garde les plus récentes (il faudra comparer avec celles du journal dans le future)
+		        echo "des métadonnées autres que la date ont été modifiées"
+		        #si la date A est plus ancienne
+                if (( $(echo "$timeB < $timeA" | bc -l) )); then
+                        echo "la date A est plus recente"
+                        chown --reference="$fichierA" "$fichierB"
+                        chmod --reference="$fichierA" "$fichierB"
+                        touch --reference="$fichierA" "$fichierB"
+                        echo "les metadonnées de b ont été actualisées"
+                else
+                #sinon si la date B est plus ancienne
+                        echo "la date de B est plus recente"
+                        chown --reference="$fichierB" "$fichierA"
+                        chmod --reference="$fichierB" "$fichierA"
+                        touch --reference="$fichierB" "$fichierA"
+                        echo "les metadonnées de a ont été actualisées"
+                fi
+                
             fi
             metadataA=$(stat -c "%y %U %G %a" "$fichierA")  # %y pour l'horodatage de modification
             metadataB=$(stat -c "%y %U %G %a" "$fichierB")  # %y pour l'horodatage de modification
-            echo -e "metadataA : ${metadataA}\nmetadataB : ${metadataB}"
+            echo -e "metadataA apres synchro : ${metadataA}\nmetadataB apres synchro : ${metadataB}"
         fi
     else # les données difèrent
         #syncho les données 
         echo "FichierA : $fichierA"
         echo "FichierB : $fichierB"
-        echo "Les fichiers ont un contenu différent. Voici la différence :"
-        diff "$fichierA" "$fichierB"
-        echo "Veuillez entrer le chemin du fichier que vous souhaitez conserver :"
-        read fichierConserve
-        if [[ $fichierConserve == $fichierA ]]; then
-            if [[ $interactive -eq 1 ]]; then
-                echo "Voulez-vous écraser $fichierB avec $fichierA ? (o/n)"
-                read response
-                if [[ $response != "o" ]]; then
-                    echo "Ignorer $fichierA"
-                    continue
-                fi
-            fi
-            if [[ $dryrun -eq 1 ]]; then
-                echo "Copierait $fichierA vers $fichierB"
-            else
-                cp -d "$fichierA" "$fichierB"
-                echo "Le fichier $nomFichier a été copié de A vers B."
-                ((filesCopiedFromAtoB++))
-                ((totalFiles++))
-            fi
+        if [[ "$shaJournal" ==  "$shasumA" ]];then
+            echo "le fichier A est comme dans le journal, on copie le fichier B"
+            cp -d "$fichierB" "$fichierA"
+            
+        elif [[ "$shaJournal" ==  "$shasumB" ]];then
+            echo "le fichier B est comme dans le journal, on copie le fichier A"
+
+            cp -d "$fichierA" "$fichierB"
+
         else
-            if [[ $interactive -eq 1 ]]; then
-                echo "Voulez-vous écraser $fichierA avec $fichierB ? (o/n)"
-                read response
-                if [[ $response != "o" ]]; then
-                    echo "Ignorer $fichierB"
-                    continue
+        #ca c'est dans le cas ou les deux fichiers ne sont pas conformes au journal ... voir algorigrame
+            echo "Les fichiers ont un contenu différent. Voici la différence :"
+            diff "$fichierA" "$fichierB"
+            echo "Veuillez entrer le chemin du fichier que vous souhaitez conserver :"
+            read fichierConserve
+            if [[ $fichierConserve == $fichierA ]]; then
+                if [[ $interactive -eq 1 ]]; then
+                    echo "Voulez-vous écraser $fichierB avec $fichierA ? (o/n)"
+                    read response
+                    if [[ $response != "o" ]]; then
+                        echo "Ignorer $fichierA"
+                        continue
+                    fi
+                fi
+                if [[ $dryrun -eq 1 ]]; then
+                    echo "Copierait $fichierA vers $fichierB"
+                else
+                    cp -d "$fichierA" "$fichierB"
+                    echo "Le fichier $nomFichier a été copié de A vers B."
+                    ((filesCopiedFromAtoB++))
+                    ((totalFiles++))
+                fi
+            else
+                if [[ $interactive -eq 1 ]]; then
+                    echo "Voulez-vous écraser $fichierA avec $fichierB ? (o/n)"
+                    read response
+                    if [[ $response != "o" ]]; then
+                        echo "Ignorer $fichierB"
+                        continue
+                    fi
+                fi
+                if [[ $dryrun -eq 1 ]]; then
+                    echo "Copierait $fichierB vers $fichierA"
+                else
+                    cp -d "$fichierB" "$fichierA"
+                    echo "Le fichier $nomFichier a été copié de B vers A."
+                    ((filesCopiedFromBtoA++))
+                    ((totalFiles++))
                 fi
             fi
-            if [[ $dryrun -eq 1 ]]; then
-                echo "Copierait $fichierB vers $fichierA"
-            else
-                cp -d "$fichierB" "$fichierA"
-                echo "Le fichier $nomFichier a été copié de B vers A."
-                ((filesCopiedFromBtoA++))
-                ((totalFiles++))
-            fi
-        fi
+        fi 
     fi
  
  
