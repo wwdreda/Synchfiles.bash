@@ -1,0 +1,50 @@
+#!/bin/bash
+create(){
+
+mkdir Arep
+mkdir Brep
+
+
+mkdir Arep/rep1
+mkdir Arep/rep2
+
+mkdir Brep/rep3
+
+touch Arep/fichier1
+touch Arep/fichier2
+touch Arep/rep1/fichier3
+
+touch Brep/fichier4
+touch Brep/rep3/fichier5
+touch Brep/fichier1
+echo aA > Arep/fichier1
+echo aa > Brep/fichier1
+
+}
+
+changeDate(){
+    echo "" >> "Arep/fichier1"
+    echo "" >> "Brep/fichier4"
+}
+
+changeOneChmod(){
+    chmod 174 "Arep/fichier2"
+}
+
+changeTwoChmodAndOneDate(){
+    chmod 174 "Brep/rep3/fichier5"
+    echo "" >> "Brep/rep3/fichier5"
+    chmod 476 "Arep/rep3/fichier5"
+}
+changeAllMetadatas(){ 
+    chmod 164 "Brep/rep3/fichier5"
+    echo "" >> "Brep/rep3/fichier5"
+    chmod 446 "Arep/rep3/fichier5"
+    echo "" >> "Arep/rep3/fichier5"
+}
+changeMetadataButNotDate(){
+    chmod 114 "Brep/rep1/fichier3"
+    chmod 474 "Arep/rep1/fichier3"
+}
+
+
