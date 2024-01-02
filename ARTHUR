@@ -122,7 +122,7 @@ syncFile(){
     journalInfos="$(getFromJournal "$relativePath")"
 	echo "journalInfos : $journalInfos"
     shaJournal="$(echo $journalInfos | rev | cut -f1 -d" " | rev)"
-    metadataJournal="$(echo "$journalInfos" | rev | cut -d' ' -f2-6 | rev)"
+    metadataJournal="$(echo "$journalInfos" | rev | cut -d' ' -f2-7 | rev)"
 
     # Si les deux fichiers ont le même hash SHA
     if [[ "$shasumA" == "$shasumB" ]]; then
@@ -163,13 +163,19 @@ syncFile(){
 		
             else # d'autres métadonnées que la date ont changé, on garde les plus récentes (il faudra comparer avec celles du journal dans le future)
 		        echo "des métadonnées autres que la date ont été modifiées"
-
+                echo "A : $metadataA"
+                echo "B : $metadataB"
+                echo "Journal : $metadataJournal" 
                 #on regarde si des métadonnées sont identiques au journal (dans ce cas ou garde les nouvelles)
-                if [[ 1==1 ]];then
-                    echo 1
-                    echo "$journalInfos"
-                    echo "$metadataJournal"
-                    echo "$metadataA"
+                if [[ "$metadataA" == "$metadataJournal" ]];then
+                    #si les metadatasA dont identiques au hournal, on garde celles de B : metaDataCP ref cible
+                    echo "metadonnéesA comme journal"
+                    metaDataCP "$fichierB" "$fichierA"
+                elif [[ "$metadataB" == "$metadataJournal" ]];then
+                    #si les metadatasB dont identiques au hournal, on garde celles de A : metaDataCP ref cible
+                    echo "metadonnéesB comme journal"
+                    metaDataCP "$fichierA" "$fichierB"
+
                 #sinon on regarde la date
                 else
                     #si la date A est plus ancienne
@@ -184,8 +190,47 @@ syncFile(){
                         echo "les metadonnées de a ont été actualisées"
                     
                     #sinon on demande à l'utilisateur
+                    else # comme pour les données 
+                    echo "Les fichiers ont des métadonnées différentes. Voici la différence :"
+                    diff "$metadataA" "$metadataB"
+                    echo "Veuillez entrer le chemin du fichier que vous souhaitez conserver :"
+                    read fichierConserve
+                    if [[ $fichierConserve == $fichierA ]]; then
+                        if [[ $interactive -eq 1 ]]; then
+                            echo "Voulez-vous écraser les metadonnées de $fichierB avec $fichierA ? (o/n)"
+                            read response
+                            if [[ $response != "o" ]]; then
+                                echo "Ignorer $fichierA"
+                                continue
+                            fi
+                        fi
+                        if [[ $dryrun -eq 1 ]]; then
+                            echo "Copierait les metadonnées de $fichierA vers $fichierB"
+                        else
+                            metaDataCP "$fichierA" "$fichierB"
+                            echo "Les metadonnées de $nomFichier a été copié de A vers B."
+                            ((filesCopiedFromAtoB++))
+                            ((totalFiles++))
+                        fi
                     else
-                        echo 1
+                        if [[ $interactive -eq 1 ]]; then
+                            echo "Voulez-vous écraser les metadonnées de $fichierA avec $fichierB ? (o/n)"
+                            read response
+                            if [[ $response != "o" ]]; then
+                                echo "Ignorer $fichierB"
+                                continue
+                            fi
+                        fi
+                        if [[ $dryrun -eq 1 ]]; then
+                            echo "Copierait les metadonnées de $fichierB vers $fichierA"
+                        else
+                            metaDataCP "$fichierB" "$fichierA"
+                            echo "Les metadonnées de $nomFichier a été copié de B vers A."
+                            ((filesCopiedFromBtoA++))
+                            ((totalFiles++))
+                        fi
+                    fi
+                        
 
                     fi
                 fi
