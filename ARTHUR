@@ -97,6 +97,14 @@ syncJournal(){
         mv "$newJournal" "$journal"
 }
 
+metaDataCP(){ #ref cible
+    chown --reference="$1" "$2"
+    chmod --reference="$1" "$2"
+    touch --reference="$1" "$2"
+
+}
+
+
 
 syncFile(){
     local pathA="$1"
@@ -114,6 +122,7 @@ syncFile(){
     journalInfos="$(getFromJournal "$relativePath")"
 	echo "journalInfos : $journalInfos"
     shaJournal="$(echo $journalInfos | rev | cut -f1 -d" " | rev)"
+    metadataJournal="$(echo "$journalInfos" | rev | cut -d' ' -f2-6 | rev)"
 
     # Si les deux fichiers ont le même hash SHA
     if [[ "$shasumA" == "$shasumB" ]]; then
@@ -143,36 +152,48 @@ syncFile(){
                 #si la date A est plus ancienne
 		        if (( $(echo "$timeA < $timeB" | bc -l) )); then
                     echo "la date A est plus ancienne"
-                    chown --reference="$fichierA" "$fichierB"
-                    chmod --reference="$fichierA" "$fichierB"
-                    touch --reference="$fichierA" "$fichierB"
+                    metaDataCP "$fichierA" "$fichierB"
                     echo "la date de b a été actualisée"
 		        else
                 #sinon si la date B est plus ancienne
                     echo "la date de B est la plus ancienne"
-                    chown --reference="$fichierB" "$fichierA"
-                    chmod --reference="$fichierB" "$fichierA"
-                    touch --reference="$fichierB" "$fichierA"
+                    metaDataCP "$fichierB" "$fichierA"
                     echo "la date de a a été actualisée"
                 fi
 		
             else # d'autres métadonnées que la date ont changé, on garde les plus récentes (il faudra comparer avec celles du journal dans le future)
 		        echo "des métadonnées autres que la date ont été modifiées"
-		        #si la date A est plus ancienne
-                if (( $(echo "$timeB < $timeA" | bc -l) )); then
-                        echo "la date A est plus recente"
-                        chown --reference="$fichierA" "$fichierB"
-                        chmod --reference="$fichierA" "$fichierB"
-                        touch --reference="$fichierA" "$fichierB"
-                        echo "les metadonnées de b ont été actualisées"
+
+                #on regarde si des métadonnées sont identiques au journal (dans ce cas ou garde les nouvelles)
+                if [[ 1==1 ]];then
+                    echo 1
+                    echo "$journalInfos"
+                    echo "$metadataJournal"
+                    echo "$metadataA"
+                #sinon on regarde la date
                 else
-                #sinon si la date B est plus ancienne
+                    #si la date A est plus ancienne
+                    if (( $(echo "$timeB < $timeA" | bc -l) )); then
+                            echo "la date A est plus recente"
+                            metaDataCP "$fichierA" "$fichierB"
+                            echo "les metadonnées de b ont été actualisées"
+                    elif (( $(echo "$timeA < $timeB" | bc -l) )); then
+                    #sinon si la date B est plus ancienne
                         echo "la date de B est plus recente"
-                        chown --reference="$fichierB" "$fichierA"
-                        chmod --reference="$fichierB" "$fichierA"
-                        touch --reference="$fichierB" "$fichierA"
+                        metaDataCP "$fichierB" "$fichierA"
                         echo "les metadonnées de a ont été actualisées"
+                    
+                    #sinon on demande à l'utilisateur
+                    else
+                        echo 1
+
+                    fi
                 fi
+
+                
+
+
+		        
                 
             fi
             metadataA=$(stat -c "%y %U %G %a" "$fichierA")  # %y pour l'horodatage de modification
