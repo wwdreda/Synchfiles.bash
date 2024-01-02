@@ -5,12 +5,14 @@ usage() {
     echo "Usage: $0 [-i] [-d] path1 path2"
     echo "  -i    Interactive mode. Ask for confirmation before overwriting files."
     echo "  -d    Dry run. Show what would be done, without actually doing it."
+    echo "  -a    Automatic mode. No question isasked to the user."
     exit 1
 }
  
 # Parse options
 interactive=0
 dryrun=0
+autorun=0
 while getopts "idh" opt; do
     case ${opt} in
         i)
@@ -18,6 +20,9 @@ while getopts "idh" opt; do
             ;;
         d)
             dryrun=1
+            ;;
+        a)
+            autorun=1
             ;;
         h)
             usage
@@ -85,7 +90,11 @@ pushToJournal(){
          
 }
 getFromJournal(){
+
         journal="$HOME/.synchro"
+        if [[ ! -f "$journal" ]];then 
+                touch "$journal"
+        fi
         fichier=$1
         journalInfos="$(grep "^$@ " "$journal")"
         echo "$journalInfos"
@@ -258,6 +267,23 @@ syncFile(){
 
             cp -d "$fichierA" "$fichierB"
 
+
+        elif  [[ 1 == $automatic ]];then #if automatic mode == 1
+        echo "Automatic mode"
+        #keep the file with more recent date or with the bigger size
+            timeA=$(date -d "$(stat -c "%y" "$fichierA")" +"%s.%N")
+            timeB=$(date -d "$(stat -c "%y" "$fichierB")" +"%s.%N")
+            if (( $(echo "$timeA < $timeB" | bc -l) )); then
+                echo "la date A est plus recente"
+                cp -d "$fichierA" "$fichierB" 
+
+            elif (( $(echo "$timeA < $timeB" | bc -l) )); then
+                echo "la date B est plus recente"
+                cp -d "$fichierB" "$fichierA" 
+            else
+                echo "Error in  $relativePath , same dates with diff datas"
+            fi
+
         else
         #ca c'est dans le cas ou les deux fichiers ne sont pas conformes au journal ... voir algorigrame
             echo "Les fichiers ont un contenu différent. Voici la différence :"
@@ -301,6 +327,7 @@ syncFile(){
             fi
         fi 
     fi
+    pushToJournal "$pathA" "${relativePath}"
  
  
 }
@@ -329,8 +356,7 @@ synchroniser() {
  
     # Parcourir tous les fichiers dans le système de fichiers A
     for absFichier in "${absPathA}"/*; do
-            local fichier=$(basename "$absFichier")
-
+        local fichier=$(basename "$absFichier")
         local fichierA="${absPathA}/${fichier}"
         echo "fichier examiné : $fichierA"
         if [ -e "$fichierA" ]; then
@@ -397,7 +423,7 @@ synchroniser() {
                 fi
             fi
             # Mettre à jour le journal avec le hachage SHA du fichier synchronisé
-            pushToJournal "$pathA" "${relativePath}/${fichier}"
+            
             #echo "$(shasum "$fichierA") $fichierA" > "$HOME/.synchro/$(basename $pathA)_$nomFichier"
             #echo "Synchronisation effectuée le $(date)" >> "$HOME/.synchro/$(basename $pathA)_$nomFichier"
            
@@ -408,7 +434,7 @@ synchroniser() {
  
     # Parcourir tous les fichiers dans le système de fichiers B
     for absFichier in "${absPathB}"/*; do
-            local fichier=$(basename ${absFichier})
+        local fichier=$(basename ${absFichier})
         local fichierB="${absPathB}/${fichier}"
         echo "fichier examiné : $fichierB"
         if [ -e "$fichierB" ]; then
@@ -453,8 +479,15 @@ synchroniser() {
                 if [[ $dryrun -eq 1 ]]; then
                     echo "Copierait $fichierB vers $fichierA"
                 else
-                    cp -r "$fichierB" "$fichierA"
-                    echo "Le fichier $nomFichier a été copié de B vers A."
+                    if [[ -f "$fichierB" ]]; then
+                        cp -r "$fichierB" "$fichierA"
+                        echo "Le fichier $nomFichier a été copié de B vers A."
+                        ((filesCopiedFromBtoA++))
+                        ((totalFiles++))
+                    else
+                        mkdir "$fichierB"
+                        syncFile "$pathA" "$pathB" "${relativePath}/${fichier}"
+                    fi
                     ((filesCopiedFromBtoA++))
                     ((totalFiles++))
                 fi
@@ -464,7 +497,7 @@ synchroniser() {
                 fi
             
                 # Mettre à jour le journal avec le hachage SHA du fichier synchronisé
-                pushToJournal "$pathA" "${relativePath}/${fichier}"
+                #pushToJournal "$pathA" "${relativePath}/${fichier}"
                 #echo "$(shasum "$fichierB") $fichierB" > "$HOME/.synchro/$(basename $pathB)_$nomFichier"
                 #echo "Synchronisation effectuée le $(date)" >> "$HOME/.synchro/$(basename $pathB)_$nomFichier"
                 echo ""
