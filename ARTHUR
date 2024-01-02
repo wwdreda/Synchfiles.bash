@@ -2,10 +2,10 @@
  
 # Help function
 usage() {
-    echo "Usage: $0 [-i] [-d] path1 path2"
+    echo "Usage: $0 [-a] [-i] [-d] path1 path2"
+        echo "  -a    Automatic mode. No question isasked to the user."
     echo "  -i    Interactive mode. Ask for confirmation before overwriting files."
     echo "  -d    Dry run. Show what would be done, without actually doing it."
-    echo "  -a    Automatic mode. No question isasked to the user."
     exit 1
 }
  
@@ -13,16 +13,16 @@ usage() {
 interactive=0
 dryrun=0
 autorun=0
-while getopts "idh" opt; do
+while getopts "aidh" opt; do
     case ${opt} in
+        a)
+            autorun=1
+            ;;
         i)
             interactive=1
             ;;
         d)
             dryrun=1
-            ;;
-        a)
-            autorun=1
             ;;
         h)
             usage
@@ -268,7 +268,7 @@ syncFile(){
             cp -d "$fichierA" "$fichierB"
 
 
-        elif  [[ 1 == $automatic ]];then #if automatic mode == 1
+        elif  [[ 1 == $autorun ]];then #if automatic mode == 1
         echo "Automatic mode"
         #keep the file with more recent date or with the bigger size
             timeA=$(date -d "$(stat -c "%y" "$fichierA")" +"%s.%N")
