@@ -277,8 +277,8 @@ syncFile(){
                 echo "la date B est plus recente"
                 cp -d "$fichierB" "$fichierA" 
 
-            elif (( $(echo "$timeA > $timeB" | bc -l) )); then
-                echo "la date B est plus recente"
+            elif (( $(echo "$timeB < $timeA" | bc -l) )); then
+                echo "la date A est plus recente"
                 cp -d "$fichierA" "$fichierB" 
             else
                 echo "Error in  $relativePath , same dates with diff datas"
