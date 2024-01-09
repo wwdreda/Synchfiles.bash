@@ -39,11 +39,6 @@ if [[ $# -ne 2 ]]; then
     usage
 fi
  
-# Vérifier si le script est exécuté en tant que root
-if [[ $EUID -ne 0 ]]; then
-   echo "Ce script doit être exécuté en tant que root"
-   exit 1
-fi
  
 # Vérifier si le nombre correct d'arguments a été fourni
 if [[ $# -ne 2 ]]; then
@@ -54,10 +49,7 @@ fi
 # Les chemins vers les systèmes de fichiers A et B
 pathA=$1
 pathB=$2
- 
-# Liste des fichiers/répertoires à exclure de la synchronisation
-exclusions=("fichier_temporaire.txt" "cache")
- 
+  
 # Compteur pour les liens symboliques synchronisés
 liensSymboliques=0
  
@@ -67,16 +59,6 @@ filesCopiedFromAtoB=0
 filesCopiedFromBtoA=0
 conflictsResolved=0
  
-# Fonction pour vérifier si un fichier/répertoire doit être exclu
-est_exclu() {
-    for exclusion in "${exclusions[@]}"; do
-        if [[ $1 == *"$exclusion"* ]]; then
-            return 0
-        fi
-    done
-    return 1
-}
-
 pushToJournal(){
         newJournal="$HOME/.synchro2"
         if [[ ! -f "$newJournal" ]];then 
@@ -113,6 +95,9 @@ metaDataCP(){ #ref cible
 
 }
 
+calculate_directory_sha() {
+    find "$1" -type f -exec sha256sum {} + | awk '{ print $1 }' | sort | sha256sum | awk '{ print $1 }'
+}
 
 
 syncFile(){
@@ -140,12 +125,11 @@ syncFile(){
         metadataA=$(stat -c "%y %U %G %a" "$fichierA")  # %y pour l'horodatage de modification
         metadataB=$(stat -c "%y %U %G %a" "$fichierB")  # %y pour l'horodatage de modification
         echo -e "metadataA : ${metadataA}\nmetadataB : ${metadataB}"
-        
+        ((conflictsResolved++))
         # Comparer le contenu des fichiers
         if [[ "$(stat -c "%y %U %G %a" "$fichierA")" == "$(stat -c "%y %U %G %a" "$fichierB")" ]]; then
             echo "Memes metadatas"
         else
-            ((conflictsResolved++))
             echo "Les fichiers ont le même contenu, mais diffèrent dans les métadonnées."
             # Résoudre le conflit en copiant les métadonnées du fichier qui est conforme au journal
 	        
@@ -160,7 +144,7 @@ syncFile(){
 	        if [[ "$(stat -c "%U %G %a" "$fichierA")" == "$(stat -c "%U %G %a" "$fichierB")" ]]; then
 		        echo "seule la date de modification a changé" 
                 #si la date A est plus ancienne
-		        if (( $(echo "$timeA < $timeB" | bc -l) )); then
+		        if (( $(echo "$timeA < $timeB"| bc -l) )); then
                     echo "la date A est plus ancienne"
                     metaDataCP "$fichierA" "$fichierB"
                     echo "la date de b a été actualisée"
@@ -189,11 +173,11 @@ syncFile(){
                 #sinon on regarde la date
                 else
                     #si la date A est plus ancienne
-                    if (( $(echo "$timeB < $timeA" | bc -l) )); then
+                    if (( $(echo "$timeB < $timeA"| bc -l) )); then
                             echo "la date A est plus recente"
                             metaDataCP "$fichierA" "$fichierB"
                             echo "les metadonnées de b ont été actualisées"
-                    elif (( $(echo "$timeA < $timeB" | bc -l) )); then
+                    elif (( $(echo "$timeA < $timeB"| bc -l) )); then
                     #sinon si la date B est plus ancienne
                         echo "la date de B est plus recente"
                         metaDataCP "$fichierB" "$fichierA"
@@ -274,13 +258,13 @@ syncFile(){
         #keep the file with more recent date or with the bigger size
             timeA=$(date -d "$(stat -c "%y" "$fichierA")" +"%s.%N")
             timeB=$(date -d "$(stat -c "%y" "$fichierB")" +"%s.%N")
-            if (( $(echo "$timeA < $timeB" | bc -l) )); then
+            if (( $(echo "$timeA < $timeB"| bc -l) )); then
                 echo "la date B est plus recente"
-                cp -d "$fichierB" "$fichierA" 
+                cp -d "$fichierB" "$fichierA"
 
-            elif (( $(echo "$timeB < $timeA" | bc -l) )); then
+            elif (( $(echo "$timeB < $timeA"| bc -l) )); then
                 echo "la date A est plus recente"
-                cp -d "$fichierA" "$fichierB" 
+                cp -d "$fichierA" "$fichierB"
             else
                 echo "Error in  $relativePath , same dates with diff datas"
             fi
@@ -363,11 +347,6 @@ synchroniser() {
         if [ -e "$fichierA" ]; then
             echo "le fichier existe !"
         
-            # Vérifier si le fichier/répertoire est dans la liste des exclusions
-            if est_exclu "$fichierA"; then
-                echo "Exclusion : $fichierA"
-                continue
-            fi
             # Chemin vers le fichier correspondant dans le système de fichiers B
             fichierB="${absPathB}/${fichier}"
             # Vérifier si le fichier existe dans le système de fichiers B
@@ -413,7 +392,7 @@ synchroniser() {
                 if [[ $dryrun -eq 1 ]]; then
                     echo "Copierait $fichierA vers $fichierB"
                 else
-                    cp -r "$fichierA" "$fichierB"
+                    cp -d "$fichierA" "$fichierB"
                     echo "Le fichier $nomFichier a été copié de A vers B."
                     ((filesCopiedFromAtoB++))
                     ((totalFiles++))
@@ -440,11 +419,6 @@ synchroniser() {
         echo "fichier examiné : $fichierB"
         if [ -e "$fichierB" ]; then
         echo "le fichier existe !"
-            # Vérifier si le fichier/répertoire est dans la liste des exclusions
-            if est_exclu "$fichierB"; then
-                echo "Exclusion : $fichierB"
-                continue
-            fi
             # Chemin vers le fichier correspondant dans le système de fichiers A
             fichierA="${absPathA}/${fichier}"
             # Vérifier si le fichier existe dans le système de fichiers A
@@ -481,7 +455,7 @@ synchroniser() {
                     echo "Copierait $fichierB vers $fichierA"
                 else
                     if [[ -f "$fichierB" ]]; then
-                        cp -r "$fichierB" "$fichierA"
+                        cp -d "$fichierB" "$fichierA"
                         echo "Le fichier $nomFichier a été copié de B vers A."
                         ((filesCopiedFromBtoA++))
                         ((totalFiles++))
@@ -508,12 +482,35 @@ synchroniser() {
         fi
     done
 }
- 
-echo "get from journal : $(getFromJournal "doc1/doc2/fichier1")"
- 
+
+# Chemins vers les répertoires A et B
+dirA=$1
+dirB=$2
+
+# Calculer les sommes de contrôle SHA initiales des répertoires A et B
+initialShaA=$(calculate_directory_sha "$dirA")
+initialShaB=$(calculate_directory_sha "$dirB")
+
 # Appeler la fonction de synchronisation
 synchroniser "$pathA" "$pathB" "."
-syncJournal 
+syncJournal
+
+# Calculer les sommes de contrôle SHA après la synchronisation
+finalShaA=$(calculate_directory_sha "$dirA")
+finalShaB=$(calculate_directory_sha "$dirB")
+
+# Comparer les sommes de contrôle initiales et finales pour détecter les changements
+if [[ "$initialShaA" != "$finalShaA" ]]; then
+    echo "Le répertoire A a été modifié pendant la synchronisation !"
+    # Gérer la situation critique ici
+fi
+
+if [[ "$initialShaB" != "$finalShaB" ]]; then
+    echo "Le répertoire B a été modifié pendant la synchronisation !"
+    # Gérer la situation critique ici
+fi
+
+
 # Afficher le résumé de la synchronisation
 echo "----------------------------------------"
 echo "RÉSUMÉ DE LA SYNCHRONISATION"
@@ -523,3 +520,4 @@ echo "Fichiers copiés de A vers B : $filesCopiedFromAtoB"
 echo "Fichiers copiés de B vers A : $filesCopiedFromBtoA"
 echo "Conflits résolus : $conflictsResolved"
 echo "----------------------------------------"
+	
