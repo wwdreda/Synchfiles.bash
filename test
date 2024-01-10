@@ -417,7 +417,7 @@ synchroniser() {
                 if [[ $dryrun -eq 1 ]]; then
                     echo "Copierait $fichierA vers $fichierB"
                 else
-                    cp -r "$fichierA" "$fichierB"
+                    cp -d "$fichierA" "$fichierB"
                     echo "Le fichier $nomFichier a été copié de A vers B."
                     ((filesCopiedFromAtoB++))
                     ((totalFiles++))
@@ -481,7 +481,7 @@ synchroniser() {
                     echo "Copierait $fichierB vers $fichierA"
                 else
                     if [[ -f "$fichierB" ]]; then
-                        cp -r "$fichierB" "$fichierA"
+                        cp -d "$fichierB" "$fichierA"
                         echo "Le fichier $nomFichier a été copié de B vers A."
                         ((filesCopiedFromBtoA++))
                         ((totalFiles++))
