@@ -125,11 +125,6 @@ syncFile(){
     local fichierA="${pathA}/${relativePath}"
     local fichierB="${pathB}/${relativePath}"
 
-    if [[ $(lsof "$fichierA" "$fichierB") ]]; then
-     echo "There are open files in either $fichierA or $fichierB"
-     continue
-   fi
-
 
     #echo "shasum A : $(shasum "$fichierA")"
     #echo "shasum B : $(shasum "$fichierB")"
