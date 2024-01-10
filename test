@@ -190,13 +190,13 @@ syncFile(){
 
                 #sinon on regarde la date
                 else
-                    #si la date A est plus ancienne
+                    
                     if (( $(echo "$timeB < $timeA" | bc -l) )); then
                             echo "la date A est plus recente"
                             metaDataCP "$fichierA" "$fichierB"
                             echo "les metadonnées de b ont été actualisées"
                     elif (( $(echo "$timeA < $timeB" | bc -l) )); then
-                    #sinon si la date B est plus ancienne
+                    
                         echo "la date de B est plus recente"
                         metaDataCP "$fichierB" "$fichierA"
                         echo "les metadonnées de a ont été actualisées"
@@ -276,7 +276,7 @@ syncFile(){
         #keep the file with more recent date or with the bigger size
             timeA=$(date -d "$(stat -c "%y" "$fichierA")" +"%s.%N")
             timeB=$(date -d "$(stat -c "%y" "$fichierB")" +"%s.%N")
-            if (( $(echo "$timeA < $timeB" | bc -l) )); then
+            if (( $(echo "$timeB < $timeA" | bc -l) )); then
                 echo "la date A est plus recente"
                 cp -d "$fichierA" "$fichierB" 
 
