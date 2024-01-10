@@ -404,8 +404,6 @@ synchroniser() {
             fi
             # Mettre à jour le journal avec le hachage SHA du fichier synchronisé
             
-            #echo "$(shasum "$fichierA") $fichierA" > "$HOME/.synchro/$(basename $pathA)_$nomFichier"
-            #echo "Synchronisation effectuée le $(date)" >> "$HOME/.synchro/$(basename $pathA)_$nomFichier"
            
         else
             echo "No files found in $pathA" 
