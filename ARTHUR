@@ -108,11 +108,20 @@ calculate_directory_sha() {
 
 
 syncFile(){
+
+
+
+
     local pathA="$1"
     local pathB="$2"
     local relativePath="$3"
     local fichierA="${pathA}/${relativePath}"
     local fichierB="${pathB}/${relativePath}"
+
+	if [[ $(lsof "$fichierA" "$fichierB") ]]; then
+            echo "Le fichier $fichier est en cours de modification, la synchronisation est suspendue pour ce fichier."
+            continue
+        fi
     
 
     echo "shasum A : $(shasum "$fichierA")"
@@ -353,10 +362,6 @@ synchroniser() {
         echo "fichier examiné : $fichierA"
         if [ -e "$fichierA" ]; then
             echo "le fichier existe !"
-            if [[ $(lsof "$fichierA") ]]; then
-            echo "Le fichier $fichier est en cours de modification, la synchronisation est suspendue pour ce fichier."
-            continue
-            fi
             # Chemin vers le fichier correspondant dans le système de fichiers B
             fichierB="${absPathB}/${fichier}"
             # Vérifier si le fichier existe dans le système de fichiers B
@@ -427,10 +432,7 @@ synchroniser() {
         echo "fichier examiné : $fichierB"
         if [ -e "$fichierB" ]; then
         echo "le fichier existe !"
-            if [[ $(lsof "$fichierB") ]]; then
-            echo "Le fichier $fichier est en cours de modification, la synchronisation est suspendue pour ce fichier."
-            continue
-            fi
+            
             # Chemin vers le fichier correspondant dans le système de fichiers A
             fichierA="${absPathA}/${fichier}"
             # Vérifier si le fichier existe dans le système de fichiers A
