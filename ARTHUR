@@ -517,5 +517,6 @@ echo "Nombre total de fichiers synchronisés : $totalFiles"
 echo "Fichiers copiés de A vers B : $filesCopiedFromAtoB"
 echo "Fichiers copiés de B vers A : $filesCopiedFromBtoA"
 echo "Conflits résolus : $conflictsResolved"
+echo "Liens synchronisés : $liensSymboliques"
 echo "----------------------------------------"
 	
