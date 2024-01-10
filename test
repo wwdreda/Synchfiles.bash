@@ -84,7 +84,7 @@ pushToJournal(){
         fi
         path="$1"
         fichier="$2"
-        echo "$fichier $(stat -c "%y %U %G %a" "${path}/${fichier}") $(shasum "${path}/${fichier}" | cut -f1 -d" " )" >> "$newJournal"
+        #echo "$fichier $(stat -c "%y %U %G %a" "${path}/${fichier}") $(shasum "${path}/${fichier}" | cut -f1 -d" " )" >> "$newJournal"
         echo "$fichier has been added to new journal"
 
          
@@ -103,6 +103,9 @@ getFromJournal(){
 syncJournal(){
         newJournal="$HOME/.synchro2"
         journal="$HOME/.synchro"
+        if [[ ! -f "$newJournal" ]];then 
+                touch "$newJournal"
+        fi
         mv "$newJournal" "$journal"
 }
 
@@ -123,13 +126,13 @@ syncFile(){
     local fichierB="${pathB}/${relativePath}"
     
 
-    echo "shasum A : $(shasum "$fichierA")"
-    echo "shasum B : $(shasum "$fichierB")"
+    #echo "shasum A : $(shasum "$fichierA")"
+    #echo "shasum B : $(shasum "$fichierB")"
     local shasumA=$(shasum "$fichierA" | cut -f1 -d" ")
     local shasumB=$(shasum "$fichierB" | cut -f1 -d" ")
 
     journalInfos="$(getFromJournal "$relativePath")"
-        echo "journalInfos : $journalInfos"
+        #echo "journalInfos : $journalInfos"
     shaJournal="$(echo $journalInfos | rev | cut -f1 -d" " | rev)"
     metadataJournal="$(echo "$journalInfos" | rev | cut -d' ' -f2-7 | rev)"
 
@@ -139,7 +142,7 @@ syncFile(){
         # Conflit détecté
         metadataA=$(stat -c "%y %U %G %a" "$fichierA")  # %y pour l'horodatage de modification
         metadataB=$(stat -c "%y %U %G %a" "$fichierB")  # %y pour l'horodatage de modification
-        echo -e "metadataA : ${metadataA}\nmetadataB : ${metadataB}"
+        #echo -e "metadataA : ${metadataA}\nmetadataB : ${metadataB}"
         ((conflictsResolved++))
         # Comparer le contenu des fichiers
         if [[ "$(stat -c "%y %U %G %a" "$fichierA")" == "$(stat -c "%y %U %G %a" "$fichierB")" ]]; then
@@ -150,12 +153,12 @@ syncFile(){
                 
             timeA=$(date -d "$(stat -c "%y" "$fichierA")" +"%s.%N")
             timeB=$(date -d "$(stat -c "%y" "$fichierB")" +"%s.%N")
-            echo "$timeA"
-            echo "$timeB"
+            #echo "$timeA"
+            #echo "$timeB"
 
             
             #si seule la date change, on garde la plus ancienne
-            echo -e "stat A : $(stat -c "%U %G %a" "$fichierA")\nstat B : $(stat -c "%U %G %a" "$fichierB")"
+            #echo -e "stat A : $(stat -c "%U %G %a" "$fichierA")\nstat B : $(stat -c "%U %G %a" "$fichierB")"
                 if [[ "$(stat -c "%U %G %a" "$fichierA")" == "$(stat -c "%U %G %a" "$fichierB")" ]]; then
                         echo "seule la date de modification a changé" 
                 #si la date A est plus ancienne
@@ -172,9 +175,9 @@ syncFile(){
 
             else # d'autres métadonnées que la date ont changé, on garde les plus récentes (il faudra comparer avec celles du journal dans le future)
                         echo "des métadonnées autres que la date ont été modifiées"
-                echo "A : $metadataA"
-                echo "B : $metadataB"
-                echo "Journal : $metadataJournal" 
+                #echo "A : $metadataA"
+                #echo "B : $metadataB"
+                #echo "Journal : $metadataJournal" 
                 #on regarde si des métadonnées sont identiques au journal (dans ce cas ou garde les nouvelles)
                 if [[ "$metadataA" == "$metadataJournal" ]];then
                     #si les metadatasA dont identiques au hournal, on garde celles de B : metaDataCP ref cible
@@ -256,8 +259,8 @@ syncFile(){
         fi
     else # les données difèrent
         #syncho les données 
-        echo "FichierA : $fichierA"
-        echo "FichierB : $fichierB"
+        #echo "FichierA : $fichierA"
+        #echo "FichierB : $fichierB"
         if [[ "$shaJournal" ==  "$shasumA" ]];then
             echo "le fichier A est comme dans le journal, on copie le fichier B"
             cp -d "$fichierB" "$fichierA"
@@ -269,7 +272,7 @@ syncFile(){
 
 
         elif  [[ 1 == $autorun ]];then #if automatic mode == 1
-        echo "Automatic mode"
+        #echo "Automatic mode"
         #keep the file with more recent date or with the bigger size
             timeA=$(date -d "$(stat -c "%y" "$fichierA")" +"%s.%N")
             timeB=$(date -d "$(stat -c "%y" "$fichierB")" +"%s.%N")
@@ -362,11 +365,7 @@ synchroniser() {
         if [ -e "$fichierA" ]; then
             echo "le fichier existe !"
         
-            # Vérifier si le fichier/répertoire est dans la liste des exclusions
-            if est_exclu "$fichierA"; then
-                echo "Exclusion : $fichierA"
-                continue
-            fi
+            
             # Chemin vers le fichier correspondant dans le système de fichiers B
             fichierB="${absPathB}/${fichier}"
             # Vérifier si le fichier existe dans le système de fichiers B
@@ -397,7 +396,7 @@ synchroniser() {
                 # - le fichier n'existait pas avant, il a donc été créé
                 #   > il faut donc le créer dans B et l'ajouter au journal
                 echo "le fichier n'est pas dans le repB, est il dans le journal?"
-                echo "$(getFromJournal $(echo "${relativePath}/${fichier}"))"
+                #echo "$(getFromJournal $(echo "${relativePath}/${fichier}"))"
 
 
                 # Copier le fichier de A vers B
@@ -439,11 +438,7 @@ synchroniser() {
         echo "fichier examiné : $fichierB"
         if [ -e "$fichierB" ]; then
         echo "le fichier existe !"
-            # Vérifier si le fichier/répertoire est dans la liste des exclusions
-            if est_exclu "$fichierB"; then
-                echo "Exclusion : $fichierB"
-                continue
-            fi
+
             # Chemin vers le fichier correspondant dans le système de fichiers A
             fichierA="${absPathA}/${fichier}"
             # Vérifier si le fichier existe dans le système de fichiers A
@@ -455,7 +450,7 @@ synchroniser() {
                 # - le fichier n'existait pas avant, il a donc été créé
                 #   > il faut donc le créer dans A et l'ajouter au journal
                 echo "le fichier n'est pas dans le repA, est il dans le journal?"
-                echo "$(getFromJournal $(echo "${relativePath}/${fichier}"))"
+                #echo "$(getFromJournal $(echo "${relativePath}/${fichier}"))"
 
                 # Si le fichier est plus grand que 1GB
                 if [[ $(stat -c%s "$fichierB") -gt 1073741824 ]]; then
