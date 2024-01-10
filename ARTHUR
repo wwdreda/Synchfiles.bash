@@ -346,7 +346,10 @@ synchroniser() {
         echo "fichier examiné : $fichierA"
         if [ -e "$fichierA" ]; then
             echo "le fichier existe !"
-        
+            if [[ $(lsof "$fichierA") ]]; then
+            echo "Le fichier $fichier est en cours de modification, la synchronisation est suspendue pour ce fichier."
+            continue
+            fi
             # Chemin vers le fichier correspondant dans le système de fichiers B
             fichierB="${absPathB}/${fichier}"
             # Vérifier si le fichier existe dans le système de fichiers B
@@ -417,6 +420,10 @@ synchroniser() {
         echo "fichier examiné : $fichierB"
         if [ -e "$fichierB" ]; then
         echo "le fichier existe !"
+            if [[ $(lsof "$fichierB") ]]; then
+            echo "Le fichier $fichier est en cours de modification, la synchronisation est suspendue pour ce fichier."
+            continue
+            fi
             # Chemin vers le fichier correspondant dans le système de fichiers A
             fichierA="${absPathA}/${fichier}"
             # Vérifier si le fichier existe dans le système de fichiers A
@@ -481,32 +488,13 @@ synchroniser() {
     done
 }
 
-# Chemins vers les répertoires A et B
-dirA=$1
-dirB=$2
 
-# Calculer les sommes de contrôle SHA initiales des répertoires A et B
-initialShaA=$(calculate_directory_sha "$dirA")
-initialShaB=$(calculate_directory_sha "$dirB")
 
 # Appeler la fonction de synchronisation
 synchroniser "$pathA" "$pathB" "."
 syncJournal
 
-# Calculer les sommes de contrôle SHA après la synchronisation
-finalShaA=$(calculate_directory_sha "$dirA")
-finalShaB=$(calculate_directory_sha "$dirB")
 
-# Comparer les sommes de contrôle initiales et finales pour détecter les changements
-if [[ "$initialShaA" != "$finalShaA" ]]; then
-    echo "Le répertoire A a été modifié pendant la synchronisation !"
-    # Gérer la situation critique ici
-fi
-
-if [[ "$initialShaB" != "$finalShaB" ]]; then
-    echo "Le répertoire B a été modifié pendant la synchronisation !"
-    # Gérer la situation critique ici
-fi
 
 
 # Afficher le résumé de la synchronisation
