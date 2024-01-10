@@ -49,6 +49,13 @@ fi
 # Les chemins vers les systèmes de fichiers A et B
 pathA=$1
 pathB=$2
+
+# Vérification si les arguments sont des répertoires valides
+if [ ! -d "$pathA" ] || [ ! -d "$pathB" ]; then
+    echo "Erreur : Les chemins spécifiés ne sont pas des répertoires valides."
+    exit 1
+fi
+
   
 # Compteur pour les liens symboliques synchronisés
 liensSymboliques=0
