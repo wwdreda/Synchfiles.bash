@@ -114,22 +114,22 @@ syncFile(){
     local shasumB=$(shasum "$fichierB" | cut -f1 -d" ")
 
     journalInfos="$(getFromJournal "$relativePath")"
-	echo "journalInfos : $journalInfos"
+    echo "journalInfos : $journalInfos"
     shaJournal="$(echo $journalInfos | rev | cut -f1 -d" " | rev)"
     metadataJournal="$(echo "$journalInfos" | rev | cut -d' ' -f2-7 | rev)"
 
     # Si les deux fichiers ont le même hash SHA
     if [[ "$shasumA" == "$shasumB" ]]; then
         echo "Le fichier $nomFichier est déjà synchronisé."
-        # Conflit détecté
         metadataA=$(stat -c "%y %U %G %a" "$fichierA")  # %y pour l'horodatage de modification
         metadataB=$(stat -c "%y %U %G %a" "$fichierB")  # %y pour l'horodatage de modification
         echo -e "metadataA : ${metadataA}\nmetadataB : ${metadataB}"
-        ((conflictsResolved++))
         # Comparer le contenu des fichiers
         if [[ "$(stat -c "%y %U %G %a" "$fichierA")" == "$(stat -c "%y %U %G %a" "$fichierB")" ]]; then
             echo "Memes metadatas"
         else
+            # Conflit détecté
+            ((conflictsResolved++))
             echo "Les fichiers ont le même contenu, mais diffèrent dans les métadonnées."
             # Résoudre le conflit en copiant les métadonnées du fichier qui est conforme au journal
 	        
