@@ -148,11 +148,12 @@ syncFile(){
         metadataA=$(stat -c "%y %U %G %a" "$fichierA")  # %y pour l'horodatage de modification
         metadataB=$(stat -c "%y %U %G %a" "$fichierB")  # %y pour l'horodatage de modification
         #echo -e "metadataA : ${metadataA}\nmetadataB : ${metadataB}"
-        ((conflictsResolved++))
+        
         # Comparer le contenu des fichiers
         if [[ "$(stat -c "%y %U %G %a" "$fichierA")" == "$(stat -c "%y %U %G %a" "$fichierB")" ]]; then
             echo "Memes metadatas"
         else
+            ((conflictsResolved++))
             echo "Les fichiers ont le même contenu, mais diffèrent dans les métadonnées."
             # Résoudre le conflit en copiant les métadonnées du fichier qui est conforme au journal
                 
