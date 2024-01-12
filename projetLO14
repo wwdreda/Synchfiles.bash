@@ -102,9 +102,7 @@ metaDataCP(){ #ref cible
 
 }
 
-calculate_directory_sha() {
-    find "$1" -type f -exec sha256sum {} + | awk '{ print $1 }' | sort | sha256sum | awk '{ print $1 }'
-}
+
 
 
 syncFile(){
